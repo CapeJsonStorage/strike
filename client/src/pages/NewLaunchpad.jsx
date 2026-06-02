@@ -80,18 +80,9 @@ export default function NewLaunchpad() {
                   <label>Project Name <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Summer Campaign 2025" autoFocus />
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Client</label>
-                    <input name="client" value={form.client} onChange={handleChange} placeholder="Client name" />
-                  </div>
-                  <div className="form-group">
-                    <label>Section</label>
-                    <select name="section" value={form.section} onChange={handleChange}>
-                      <option value="sandbox">Sandbox</option>
-                      <option value="premier">Premier</option>
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label>Client</label>
+                  <input name="client" value={form.client} onChange={handleChange} placeholder="Client name" />
                 </div>
               </div>
             </div>

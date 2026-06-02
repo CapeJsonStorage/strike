@@ -30,7 +30,7 @@ export default function Overview() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    authFetch(`/api/projects/${id}`, { })
+    authFetch(`/api/projects/${id}`)
       .then(r => r.json())
       .then(data => {
         setProject(data);
@@ -43,6 +43,7 @@ export default function Overview() {
           timeline: data.timeline || '',
           ros: data.ros || '',
           budget: data.budget || '',
+          // preserve status/section — managed from Dashboard, not here
           status: data.status || 'active',
           section: data.section || 'sandbox',
         });
@@ -77,14 +78,37 @@ export default function Overview() {
     }
   }
 
-  async function handleDelete() {
-    if (!confirm('Move this project to trash?')) return;
-    await authFetch(`/api/projects/${id}`, { method: 'DELETE' });
-    navigate('/');
+  async function handleStatusChange(newStatus) {
+    const messages = {
+      archived: 'Archive this project?',
+      trash: 'Move this project to trash?',
+      active: 'Restore this project to active?',
+    };
+    if (!confirm(messages[newStatus] || 'Continue?')) return;
+    try {
+      const res = await authFetch(`/api/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, status: newStatus }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProject(data);
+        setForm(f => ({ ...f, status: data.status }));
+        // Navigate home if trashed
+        if (newStatus === 'trash') navigate('/');
+      }
+    } catch {
+      setError('Failed to update status.');
+    }
   }
 
   if (loading) return <div className="loading">Loading...</div>;
   if (!project) return <div className="loading">Project not found.</div>;
+
+  const isActive = project.status === 'active';
+  const isArchived = project.status === 'archived';
+  const isTrashed = project.status === 'trash';
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
@@ -101,9 +125,9 @@ export default function Overview() {
           STRIKE
         </NavLink>
         <span style={{ color: 'var(--text-dim)' }}>›</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-          {project.section?.toUpperCase()}
-        </span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>SANDBOX</span>
+        <span style={{ color: 'var(--text-dim)' }}>›</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 13, textTransform: 'capitalize' }}>{project.status}</span>
         <span style={{ color: 'var(--text-dim)' }}>›</span>
         <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{project.name}</span>
       </div>
@@ -112,10 +136,48 @@ export default function Overview() {
 
       <div className="page-body" style={{ maxWidth: 800 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Project Overview</h2>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700 }}>Project Overview</h2>
+            {!isActive && (
+              <span style={{
+                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: isArchived ? '#F59E0B' : '#EF4444',
+                background: isArchived ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                padding: '2px 8px', borderRadius: 4, marginTop: 4, display: 'inline-block',
+              }}>
+                {project.status}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {saved && <span style={{ color: 'var(--status-green)', fontSize: 13 }}>✓ Saved</span>}
-            <button className="btn btn-danger btn-sm" onClick={handleDelete}>Trash</button>
+
+            {/* Archive / Restore / Trash actions */}
+            {isActive && (
+              <button className="btn btn-secondary btn-sm" onClick={() => handleStatusChange('archived')}>
+                Archive
+              </button>
+            )}
+            {isArchived && (
+              <button className="btn btn-secondary btn-sm" onClick={() => handleStatusChange('active')}>
+                Restore
+              </button>
+            )}
+            {!isTrashed && (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--danger)' }}
+                onClick={() => handleStatusChange('trash')}
+              >
+                Trash
+              </button>
+            )}
+            {isTrashed && (
+              <button className="btn btn-secondary btn-sm" onClick={() => handleStatusChange('active')}>
+                Restore
+              </button>
+            )}
+
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -125,37 +187,19 @@ export default function Overview() {
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Identity — no Section or Status dropdowns */}
           <div className="card" style={{ padding: 24 }}>
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>
               Identity
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Project Name</label>
-                  <input name="name" value={form.name} onChange={handleChange} />
-                </div>
-                <div className="form-group">
-                  <label>Client</label>
-                  <input name="client" value={form.client} onChange={handleChange} placeholder="Client name" />
-                </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Project Name</label>
+                <input name="name" value={form.name} onChange={handleChange} />
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Section</label>
-                  <select name="section" value={form.section} onChange={handleChange}>
-                    <option value="sandbox">Sandbox</option>
-                    <option value="premier">Premier</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Status</label>
-                  <select name="status" value={form.status} onChange={handleChange}>
-                    <option value="active">Active</option>
-                    <option value="archived">Archived</option>
-                    <option value="trash">Trash</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label>Client</label>
+                <input name="client" value={form.client} onChange={handleChange} placeholder="Client name" />
               </div>
             </div>
           </div>
@@ -203,11 +247,11 @@ export default function Overview() {
           </div>
         </div>
 
-        {/* Premier link */}
+        {/* Premier / Client Preview link */}
         <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Client Preview</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Share the approved assets page with your client</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Share the Premier view of all approved assets with your client</div>
           </div>
           <NavLink to={`/projects/${id}/premier`} target="_blank" className="btn btn-secondary btn-sm">
             Open Premier →

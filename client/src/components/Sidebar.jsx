@@ -1,6 +1,6 @@
 import { authFetch } from '../App.jsx';
 import React, { useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App.jsx';
 
 function SidebarSection({ title, items, onSelect, activeFilter }) {
@@ -62,25 +62,21 @@ function SidebarSection({ title, items, onSelect, activeFilter }) {
 }
 
 export default function Sidebar({ activeFilter, onFilterChange }) {
-  const { user, setUser } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  async function handleLogout() {
-    await authFetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    navigate('/login');
-  }
-
   const sandboxItems = [
-    { key: 'sandbox-active', label: 'Active', section: 'sandbox', status: 'active' },
+    { key: 'sandbox-active',   label: 'Active',   section: 'sandbox', status: 'active' },
     { key: 'sandbox-archived', label: 'Archived', section: 'sandbox', status: 'archived' },
-    { key: 'sandbox-trash', label: 'Trash', section: 'sandbox', status: 'trash' },
+    { key: 'sandbox-trash',    label: 'Trash',    section: 'sandbox', status: 'trash' },
   ];
 
+  // Premier is a read-only view — it shows all sandbox projects that have approved assets.
+  // No separate folder structure needed; it lives as a section in the sidebar for navigation.
   const premierItems = [
-    { key: 'premier-active', label: 'Active', section: 'premier', status: 'active' },
+    { key: 'premier-active',   label: 'Active',   section: 'premier', status: 'active' },
     { key: 'premier-archived', label: 'Archived', section: 'premier', status: 'archived' },
-    { key: 'premier-trash', label: 'Trash', section: 'premier', status: 'trash' },
+    { key: 'premier-trash',    label: 'Trash',    section: 'premier', status: 'trash' },
   ];
 
   return (
@@ -124,16 +120,32 @@ export default function Sidebar({ activeFilter, onFilterChange }) {
           onSelect={onFilterChange}
           activeFilter={activeFilter}
         />
+
         <div style={{ height: 1, background: 'var(--border)', margin: '8px 16px' }} />
-        <SidebarSection
-          title="Premier"
-          items={premierItems}
-          onSelect={onFilterChange}
-          activeFilter={activeFilter}
-        />
+
+        {/* Premier — label only, click goes to active sandbox projects with approved assets */}
+        <div style={{ marginBottom: 4 }}>
+          <div style={{
+            padding: '6px 16px',
+            color: 'var(--text-dim)',
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}>
+            Premier
+          </div>
+          <div style={{ paddingLeft: 12, paddingRight: 12, paddingBottom: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '4px 16px', lineHeight: 1.5 }}>
+              Open a project and click{' '}
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Open Premier →</span>
+              {' '}on the Overview tab to view the client-facing approved assets page.
+            </div>
+          </div>
+        </div>
       </nav>
 
-      {/* New Project button */}
+      {/* New Project + User */}
       <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <button
           className="btn btn-primary"
@@ -147,9 +159,13 @@ export default function Sidebar({ activeFilter, onFilterChange }) {
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{user.role}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{user.email}</div>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={handleLogout} title="Logout">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { logout(); navigate('/login'); }}
+              title="Logout"
+            >
               ↩
             </button>
           </div>
