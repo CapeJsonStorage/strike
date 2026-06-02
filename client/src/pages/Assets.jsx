@@ -27,6 +27,7 @@ export default function Assets() {
   const [project, setProject] = useState(null);
   const [assets, setAssets] = useState([]);
   const [assetStatuses, setAssetStatuses] = useState({}); // assetId -> status string
+  const [assetDesigners, setAssetDesigners] = useState({}); // assetId -> designer name
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', type: 'digital' });
@@ -42,22 +43,27 @@ export default function Assets() {
       const list = Array.isArray(assetList) ? assetList : [];
       setAssets(list);
 
-      // Fetch spec status for each asset in parallel
+      // Fetch spec status + designer for each asset in parallel
       const statusMap = {};
+      const designerMap = {};
       await Promise.all(list.map(async asset => {
         try {
           const res = await authFetch(`/api/assets/${asset.id}/specifications`);
           const specs = await res.json();
           if (specs && specs.length > 0) {
             statusMap[asset.id] = specs[0].status;
+            designerMap[asset.id] = specs[0].designer || '—';
           } else {
             statusMap[asset.id] = 'producer_input';
+            designerMap[asset.id] = '—';
           }
         } catch {
           statusMap[asset.id] = 'producer_input';
+          designerMap[asset.id] = '—';
         }
       }));
       setAssetStatuses(statusMap);
+      setAssetDesigners(designerMap);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -77,6 +83,7 @@ export default function Assets() {
       if (!res.ok) { setError(data.error); return; }
       setAssets(a => [...a, data]);
       setAssetStatuses(s => ({ ...s, [data.id]: 'producer_input' }));
+      setAssetDesigners(s => ({ ...s, [data.id]: '—' }));
       setNewAsset({ name: '', type: 'digital' });
       setShowForm(false);
     } catch {
@@ -180,10 +187,10 @@ export default function Assets() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Asset Name', 'Type', 'Created', 'Status', 'Actions'].map((h, i) => (
+                  {['Asset Name', 'Type', 'Designer', 'Created', 'Status', 'Actions'].map((h, i) => (
                     <th key={h} style={{
                       padding: '12px 20px',
-                      textAlign: i === 4 ? 'right' : 'left',
+                      textAlign: i === 5 ? 'right' : 'left',
                       fontSize: 11,
                       fontWeight: 700,
                       color: 'var(--text-muted)',
@@ -210,8 +217,11 @@ export default function Assets() {
                     <td style={{ padding: '14px 20px' }}>
                       <ColorTag
                         label={asset.type}
-                        color={asset.type === 'print' ? '#A855F7' : '#3B82F6'}
+                        color={asset.type === 'print' ? '#A855F7' : 'var(--accent)'}
                       />
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: 13, color: 'var(--text-primary)' }}>
+                      {assetDesigners[asset.id] || '—'}
                     </td>
                     <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-muted)' }}>
                       {new Date(asset.created_at).toLocaleDateString()}
