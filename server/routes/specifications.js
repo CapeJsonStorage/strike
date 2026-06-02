@@ -1,12 +1,9 @@
 const express = require('express');
 const pool = require('../db');
 
-const router = express.Router();
+const requireAuth = require('../middleware/requireAuth');
 
-function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated.' });
-  next();
-}
+const router = express.Router();
 
 const STATUS_ORDER = ['producer_input', 'for_revision', 'for_client_revision', 'approved'];
 

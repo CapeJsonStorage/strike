@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useSearchParams } from 'react-router-dom';
 import StatusBadge, { STATUS_CONFIG } from '../components/StatusBadge.jsx';
@@ -57,8 +58,8 @@ export default function Specifications() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/projects/${id}`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`/api/projects/${id}/assets`, { credentials: 'include' }).then(r => r.json()),
+      authFetch(`/api/projects/${id}`, { }).then(r => r.json()),
+      authFetch(`/api/projects/${id}/assets`, { }).then(r => r.json()),
     ]).then(([proj, assetList]) => {
       setProject(proj);
       const list = Array.isArray(assetList) ? assetList : [];
@@ -81,7 +82,7 @@ export default function Specifications() {
     setSpec(null);
     setFiles([]);
     setForm({});
-    fetch(`/api/assets/${selectedAsset.id}/specifications`, { credentials: 'include' })
+    authFetch(`/api/assets/${selectedAsset.id}/specifications`, { })
       .then(r => r.json())
       .then(async specs => {
         if (specs && specs.length > 0) {
@@ -99,15 +100,14 @@ export default function Specifications() {
             internal_notes: s.internal_notes || '',
           });
           // Load files
-          const filesRes = await fetch(`/api/specifications/${s.id}/files`, { credentials: 'include' });
+          const filesRes = await authFetch(`/api/specifications/${s.id}/files`, { });
           const filesData = await filesRes.json();
           setFiles(Array.isArray(filesData) ? filesData : []);
         } else {
           // Create empty spec
-          const res = await fetch(`/api/assets/${selectedAsset.id}/specifications`, {
+          const res = await authFetch(`/api/assets/${selectedAsset.id}/specifications`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({}),
           });
           const newSpec = await res.json();
@@ -129,10 +129,9 @@ export default function Specifications() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch(`/api/specifications/${spec.id}`, {
+      const res = await authFetch(`/api/specifications/${spec.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(form),
       });
       const data = await res.json();
@@ -153,10 +152,9 @@ export default function Specifications() {
     setAdvancing(true);
     try {
       await handleSave();
-      const res = await fetch(`/api/specifications/${spec.id}/status`, {
+      const res = await authFetch(`/api/specifications/${spec.id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({}),
       });
       const data = await res.json();
@@ -275,10 +273,9 @@ export default function Specifications() {
                       key={s}
                       onClick={() => {
                         if (!isCurrent) {
-                          fetch(`/api/specifications/${spec.id}/status`, {
+                          authFetch(`/api/specifications/${spec.id}/status`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
                             body: JSON.stringify({ status: s }),
                           }).then(r => r.json()).then(data => { if (data.id) setSpec(data); });
                         }

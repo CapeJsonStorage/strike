@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 
@@ -29,7 +30,7 @@ export default function Overview() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`/api/projects/${id}`, { credentials: 'include' })
+    authFetch(`/api/projects/${id}`, { })
       .then(r => r.json())
       .then(data => {
         setProject(data);
@@ -59,10 +60,9 @@ export default function Overview() {
     setError('');
     setSaved(false);
     try {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await authFetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(form),
       });
       const data = await res.json();
@@ -79,7 +79,7 @@ export default function Overview() {
 
   async function handleDelete() {
     if (!confirm('Move this project to trash?')) return;
-    await fetch(`/api/projects/${id}`, { method: 'DELETE', credentials: 'include' });
+    await authFetch(`/api/projects/${id}`, { method: 'DELETE' });
     navigate('/');
   }
 

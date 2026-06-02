@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../App.jsx';
@@ -65,7 +66,7 @@ export default function Sidebar({ activeFilter, onFilterChange }) {
   const navigate = useNavigate();
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await authFetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
     navigate('/login');
   }

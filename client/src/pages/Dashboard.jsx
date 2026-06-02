@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar.jsx';
@@ -72,7 +73,7 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams(activeFilter);
-    fetch(`/api/projects?${params}`, { credentials: 'include' })
+    authFetch(`/api/projects?${params}`, { })
       .then(r => r.json())
       .then(data => { setProjects(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));

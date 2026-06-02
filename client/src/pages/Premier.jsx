@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -17,17 +18,17 @@ export default function Premier() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/projects/${id}`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`/api/projects/${id}/assets`, { credentials: 'include' }).then(r => r.json()),
+      authFetch(`/api/projects/${id}`, { }).then(r => r.json()),
+      authFetch(`/api/projects/${id}/assets`, { }).then(r => r.json()),
     ]).then(async ([proj, assets]) => {
       setProject(proj);
       const items = [];
       for (const asset of (Array.isArray(assets) ? assets : [])) {
-        const specsRes = await fetch(`/api/assets/${asset.id}/specifications`, { credentials: 'include' });
+        const specsRes = await authFetch(`/api/assets/${asset.id}/specifications`, { });
         const specs = await specsRes.json();
         const approved = (Array.isArray(specs) ? specs : []).filter(s => s.status === 'approved');
         for (const spec of approved) {
-          const filesRes = await fetch(`/api/specifications/${spec.id}/files`, { credentials: 'include' });
+          const filesRes = await authFetch(`/api/specifications/${spec.id}/files`, { });
           const files = await filesRes.json();
           items.push({ asset, spec, files: Array.isArray(files) ? files : [] });
         }

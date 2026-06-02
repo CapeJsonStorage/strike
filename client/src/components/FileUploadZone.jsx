@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useRef, useState } from 'react';
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
@@ -21,9 +22,8 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
     form.append('file_type', 'reference');
     form.append('uploaded_by', 'user');
     try {
-      const res = await fetch(`/api/specifications/${specId}/files`, {
+      const res = await authFetch(`/api/specifications/${specId}/files`, {
         method: 'POST',
-        credentials: 'include',
         body: form,
       });
       if (!res.ok) throw new Error('Upload failed');
@@ -44,7 +44,7 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
   }
 
   async function handleDelete(fileId) {
-    await fetch(`/api/files/${fileId}`, { method: 'DELETE', credentials: 'include' });
+    await authFetch(`/api/files/${fileId}`, { method: 'DELETE' });
     onDeleted(fileId);
   }
 

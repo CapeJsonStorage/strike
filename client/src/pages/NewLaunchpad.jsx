@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 
@@ -27,10 +28,9 @@ export default function NewLaunchpad() {
     setSaving(true);
     setError('');
     try {
-      const res = await fetch('/api/projects', {
+      const res = await authFetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(form),
       });
       const data = await res.json();

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import NewLaunchpad from './pages/NewLaunchpad.jsx';
@@ -14,6 +14,40 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// Attach JWT to every fetch call
+export function authFetch(url, options = {}) {
+  const token = localStorage.getItem('strike_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
+
+function TokenHandler({ setUser, setLoading }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Pick up token from Google OAuth redirect
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('strike_token', token);
+      window.history.replaceState({}, '', '/');
+    }
+
+    // Validate token
+    authFetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { setUser(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return null;
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading">Loading...</div>;
@@ -25,16 +59,15 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { setUser(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+  function logout() {
+    localStorage.removeItem('strike_token');
+    setUser(null);
+  }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading }}>
+    <AuthContext.Provider value={{ user, setUser, loading, logout }}>
       <BrowserRouter>
+        <TokenHandler setUser={setUser} setLoading={setLoading} />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

@@ -1,3 +1,4 @@
+import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import ColorTag from '../components/ColorTag.jsx';
@@ -32,8 +33,8 @@ export default function Assets() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/projects/${id}`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`/api/projects/${id}/assets`, { credentials: 'include' }).then(r => r.json()),
+      authFetch(`/api/projects/${id}`, { }).then(r => r.json()),
+      authFetch(`/api/projects/${id}/assets`, { }).then(r => r.json()),
     ]).then(([proj, assetList]) => {
       setProject(proj);
       setAssets(Array.isArray(assetList) ? assetList : []);
@@ -47,10 +48,9 @@ export default function Assets() {
     setAdding(true);
     setError('');
     try {
-      const res = await fetch(`/api/projects/${id}/assets`, {
+      const res = await authFetch(`/api/projects/${id}/assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(newAsset),
       });
       const data = await res.json();
@@ -67,7 +67,7 @@ export default function Assets() {
 
   async function handleDelete(assetId) {
     if (!confirm('Delete this asset and all its specifications?')) return;
-    await fetch(`/api/assets/${assetId}`, { method: 'DELETE', credentials: 'include' });
+    await authFetch(`/api/assets/${assetId}`, { method: 'DELETE' });
     setAssets(a => a.filter(x => x.id !== assetId));
   }
 

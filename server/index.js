@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('./db');
 
-const authRoutes = require('./routes/auth');
+const { router: authRoutes, passport } = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const assetRoutes = require('./routes/assets');
 const specRoutes = require('./routes/specifications');
@@ -24,6 +24,8 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use(passport.initialize());
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'strike-dev-secret',
   resave: false,
@@ -37,6 +39,9 @@ app.use(session({
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// OAuth routes (not under /api — callback URL must match Google Console)
+app.use('/auth', authRoutes);
 
 // API Routes
 app.use('/api/auth', authRoutes);

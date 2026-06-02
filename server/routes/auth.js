@@ -1,49 +1,57 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
-const pool = require('../db');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
-// POST /api/auth/login
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
+const ALLOWED_DOMAIN = 'capecreative.co';
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'strike-dev-secret';
+const APP_URL = process.env.APP_URL || 'http://localhost:3001';
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: APP_URL + '/auth/google/callback',
+}, (_at, _rt, profile, done) => {
+  const email = profile.emails?.[0]?.value || '';
+  if (!email.endsWith('@' + ALLOWED_DOMAIN)) {
+    return done(null, false, { message: 'Unauthorized domain' });
   }
+  done(null, { email, name: profile.displayName });
+}));
+
+passport.serializeUser((u, done) => done(null, u));
+passport.deserializeUser((u, done) => done(null, u));
+
+// GET /auth/google — start OAuth flow
+router.get('/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
+
+// GET /auth/google/callback
+router.get('/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/login?error=unauthorized' }),
+  (req, res) => {
+    const token = jwt.sign(req.user, JWT_SECRET, { expiresIn: '30d' });
+    // Redirect to frontend with token in URL; frontend stores it
+    res.redirect('/?token=' + token);
+  }
+);
+
+// GET /api/auth/me — validate JWT from Authorization header
+router.get('/me', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'Not authenticated.' });
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
-    if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
-
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials.' });
-
-    req.session.userId = user.id;
-    req.session.userRole = user.role;
-    res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error.' });
+    const user = jwt.verify(token, JWT_SECRET);
+    res.json({ name: user.name, email: user.email });
+  } catch {
+    res.status(401).json({ error: 'Invalid token.' });
   }
 });
 
-// POST /api/auth/logout
-router.post('/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ message: 'Logged out.' });
-  });
+// POST /api/auth/logout — client just drops the token; this is a no-op confirmation
+router.post('/logout', (_req, res) => {
+  res.json({ message: 'Logged out.' });
 });
 
-// GET /api/auth/me
-router.get('/me', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated.' });
-  try {
-    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.session.userId]);
-    if (!result.rows[0]) return res.status(401).json({ error: 'User not found.' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-module.exports = router;
+module.exports = { router, passport };
