@@ -36,10 +36,19 @@ function notesConfig(status) {
   }
 }
 
-function uploadLabel(status) {
-  if (status === 'for_revision' || status === 'for_client_revision') return 'Design Versions';
-  if (status === 'approved') return 'Approved Files';
-  return 'Reference Images / Site Visits';
+function uploadConfig(status) {
+  switch (status) {
+    case 'producer_input':
+      return { label: 'Reference Images / Site Visits', fileType: 'reference', filterType: 'reference', readOnly: false };
+    case 'for_revision':
+      return { label: 'Design Versions', fileType: 'version', filterType: 'version', readOnly: false };
+    case 'for_client_revision':
+      return { label: 'Design Versions', fileType: 'version', filterType: 'version', readOnly: false };
+    case 'approved':
+      return { label: 'Approved Files', fileType: 'version', filterType: 'version', readOnly: true };
+    default:
+      return { label: 'Files', fileType: 'reference', filterType: null, readOnly: false };
+  }
 }
 
 export default function Specifications() {
@@ -172,6 +181,7 @@ export default function Specifications() {
   const notes = spec ? notesConfig(spec.status) : { label: 'Notes', field: 'producer_notes' };
   const statusIdx = spec ? STATUS_ORDER.indexOf(spec.status) : 0;
   const isApproved = spec?.status === 'approved';
+  const upload = spec ? uploadConfig(spec.status) : { label: 'Files', fileType: 'reference', filterType: null, readOnly: false };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
@@ -382,7 +392,10 @@ export default function Specifications() {
                     files={files}
                     onUploaded={f => setFiles(prev => [f, ...prev])}
                     onDeleted={fid => setFiles(prev => prev.filter(x => x.id !== fid))}
-                    label={uploadLabel(spec.status)}
+                    label={upload.label}
+                    fileType={upload.fileType}
+                    filterType={upload.filterType}
+                    readOnly={upload.readOnly}
                   />
                 </div>
               </div>

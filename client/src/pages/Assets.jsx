@@ -2,6 +2,7 @@ import { authFetch } from '../App.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import ColorTag from '../components/ColorTag.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
 
 function ProjectTabs({ id, active }) {
   const tabs = [
@@ -25,6 +26,7 @@ export default function Assets() {
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [assets, setAssets] = useState([]);
+  const [assetStatuses, setAssetStatuses] = useState({}); // assetId -> status string
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', type: 'digital' });
@@ -33,11 +35,29 @@ export default function Assets() {
 
   useEffect(() => {
     Promise.all([
-      authFetch(`/api/projects/${id}`, { }).then(r => r.json()),
-      authFetch(`/api/projects/${id}/assets`, { }).then(r => r.json()),
-    ]).then(([proj, assetList]) => {
+      authFetch(`/api/projects/${id}`).then(r => r.json()),
+      authFetch(`/api/projects/${id}/assets`).then(r => r.json()),
+    ]).then(async ([proj, assetList]) => {
       setProject(proj);
-      setAssets(Array.isArray(assetList) ? assetList : []);
+      const list = Array.isArray(assetList) ? assetList : [];
+      setAssets(list);
+
+      // Fetch spec status for each asset in parallel
+      const statusMap = {};
+      await Promise.all(list.map(async asset => {
+        try {
+          const res = await authFetch(`/api/assets/${asset.id}/specifications`);
+          const specs = await res.json();
+          if (specs && specs.length > 0) {
+            statusMap[asset.id] = specs[0].status;
+          } else {
+            statusMap[asset.id] = 'producer_input';
+          }
+        } catch {
+          statusMap[asset.id] = 'producer_input';
+        }
+      }));
+      setAssetStatuses(statusMap);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -56,6 +76,7 @@ export default function Assets() {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       setAssets(a => [...a, data]);
+      setAssetStatuses(s => ({ ...s, [data.id]: 'producer_input' }));
       setNewAsset({ name: '', type: 'digital' });
       setShowForm(false);
     } catch {
@@ -104,7 +125,6 @@ export default function Assets() {
 
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
 
-        {/* Inline add form */}
         {showForm && (
           <div className="card" style={{ padding: 20, marginBottom: 16 }}>
             <form onSubmit={handleAddAsset} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -160,10 +180,19 @@ export default function Assets() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Asset Name</th>
-                  <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type</th>
-                  <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Created</th>
-                  <th style={{ padding: '12px 20px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actions</th>
+                  {['Asset Name', 'Type', 'Created', 'Status', 'Actions'].map((h, i) => (
+                    <th key={h} style={{
+                      padding: '12px 20px',
+                      textAlign: i === 4 ? 'right' : 'left',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                    }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -186,6 +215,9 @@ export default function Assets() {
                     </td>
                     <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-muted)' }}>
                       {new Date(asset.created_at).toLocaleDateString()}
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <StatusBadge status={assetStatuses[asset.id] || 'producer_input'} size="sm" />
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

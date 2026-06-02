@@ -8,18 +8,24 @@ function isImage(filename) {
   return IMAGE_EXTS.includes(ext);
 }
 
-export default function FileUploadZone({ specId, files, onUploaded, onDeleted, label = 'Reference Images / Site Visits' }) {
+// fileType: what type to tag uploads as ('reference' or 'version')
+// filterType: which file_type to show ('reference', 'version', or null = show all)
+export default function FileUploadZone({ specId, files, onUploaded, onDeleted, label = 'Files', fileType = 'reference', filterType = null, readOnly = false }) {
   const fileInput = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  const visibleFiles = filterType
+    ? (files || []).filter(f => f.file_type === filterType)
+    : (files || []);
 
   async function uploadFile(file) {
     setUploading(true);
     setError('');
     const form = new FormData();
     form.append('file', file);
-    form.append('file_type', 'reference');
+    form.append('file_type', fileType);
     form.append('uploaded_by', 'user');
     try {
       const res = await authFetch(`/api/specifications/${specId}/files`, {
@@ -29,7 +35,7 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
       if (!res.ok) throw new Error('Upload failed');
       const newFile = await res.json();
       onUploaded(newFile);
-    } catch (e) {
+    } catch {
       setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -39,8 +45,8 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
   function handleDrop(e) {
     e.preventDefault();
     setDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    droppedFiles.forEach(uploadFile);
+    if (readOnly) return;
+    Array.from(e.dataTransfer.files).forEach(uploadFile);
   }
 
   async function handleDelete(fileId) {
@@ -54,46 +60,48 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
         {label}
       </div>
 
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInput.current?.click()}
-        style={{
-          border: `2px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
-          borderRadius: 'var(--radius)',
-          padding: '24px 16px',
-          textAlign: 'center',
-          cursor: 'pointer',
-          background: dragging ? 'rgba(59,130,246,0.05)' : 'transparent',
-          transition: 'all 0.15s',
-          color: 'var(--text-muted)',
-          fontSize: 13,
-        }}
-      >
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          style={{ display: 'none' }}
-          onChange={e => Array.from(e.target.files).forEach(uploadFile)}
-        />
-        {uploading ? (
-          <span>Uploading...</span>
-        ) : (
-          <>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>📎</div>
-            <div>Drop files here or <span style={{ color: 'var(--accent)' }}>click to browse</span></div>
-            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--text-dim)' }}>PNG, JPG, PDF, AI, EPS, MP4 — up to 50MB</div>
-          </>
-        )}
-      </div>
+      {!readOnly && (
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInput.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius)',
+            padding: '24px 16px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            background: dragging ? 'rgba(59,130,246,0.05)' : 'transparent',
+            transition: 'all 0.15s',
+            color: 'var(--text-muted)',
+            fontSize: 13,
+          }}
+        >
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => Array.from(e.target.files).forEach(uploadFile)}
+          />
+          {uploading ? (
+            <span>Uploading...</span>
+          ) : (
+            <>
+              <div style={{ fontSize: 24, marginBottom: 6 }}>📎</div>
+              <div>Drop files here or <span style={{ color: 'var(--accent)' }}>click to browse</span></div>
+              <div style={{ fontSize: 11, marginTop: 4, color: 'var(--text-dim)' }}>PNG, JPG, PDF, AI, EPS, MP4 — up to 50MB</div>
+            </>
+          )}
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {files && files.length > 0 && (
+      {visibleFiles.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {files.map(f => (
+          {visibleFiles.map(f => (
             <div key={f.id} style={{
               display: 'flex',
               alignItems: 'center',
@@ -132,16 +140,22 @@ export default function FileUploadZone({ specId, files, onUploaded, onDeleted, l
                   {new Date(f.created_at).toLocaleDateString()}
                 </div>
               </div>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => handleDelete(f.id)}
-                style={{ color: 'var(--danger)', flexShrink: 0 }}
-              >
-                ✕
-              </button>
+              {!readOnly && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleDelete(f.id)}
+                  style={{ color: 'var(--danger)', flexShrink: 0 }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>
+      )}
+
+      {visibleFiles.length === 0 && readOnly && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>No files uploaded.</div>
       )}
     </div>
   );
