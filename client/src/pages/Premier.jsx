@@ -410,7 +410,8 @@ export default function Premier() {
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 16 }}
                           title="Delete this save"
-                      >×</button>
+                        >×</button>
+                      </div>
                     </div>
                   ))}
                 </div>
