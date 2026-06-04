@@ -82,6 +82,14 @@ ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_revision DATE;
 ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_client_review DATE;
 ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_approved DATE;
 
+-- Premier saves (archived snapshots)
+CREATE TABLE IF NOT EXISTS premier_saves (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  label VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS spec_files (
   id SERIAL PRIMARY KEY,
   specification_id INTEGER REFERENCES specifications(id) ON DELETE CASCADE,

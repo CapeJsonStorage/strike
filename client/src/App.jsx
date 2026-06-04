@@ -7,6 +7,7 @@ import Overview from './pages/Overview.jsx';
 import Assets from './pages/Assets.jsx';
 import Specifications from './pages/Specifications.jsx';
 import Premier from './pages/Premier.jsx';
+import Uploads from './pages/Uploads.jsx';
 
 export const AuthContext = createContext(null);
 
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/projects/:id/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
           <Route path="/projects/:id/specifications" element={<ProtectedRoute><Specifications /></ProtectedRoute>} />
           <Route path="/projects/:id/premier" element={<Premier />} />
+          <Route path="/projects/:id/uploads" element={<ProtectedRoute><Uploads /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -1,5 +1,5 @@
 import { authFetch } from '../App.jsx';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
@@ -126,15 +126,21 @@ export default function Premier() {
   const [approvedItems, setApprovedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [premierSaves, setPremierSaves] = useState([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveLabel, setSaveLabel] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
       authFetch(`/api/projects/${id}`).then(r => r.json()),
       authFetch(`/api/projects/${id}/assets`).then(r => r.json()),
       authFetch(`/api/projects/${id}/vendors`).then(r => r.json()).catch(() => []),
-    ]).then(async ([proj, assets, vends]) => {
+      authFetch(`/api/projects/${id}/premier-saves`).then(r => r.json()).catch(() => []),
+    ]).then(async ([proj, assets, vends, saves]) => {
       setProject(proj);
       setVendors(Array.isArray(vends) ? vends : []);
+      setPremierSaves(Array.isArray(saves) ? saves : []);
 
       const items = [];
       for (const asset of (Array.isArray(assets) ? assets : [])) {
@@ -188,8 +194,98 @@ export default function Premier() {
           <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{project?.name}</div>
           {project?.client && <div style={{ fontSize: 13, color: '#888' }}>{project.client}</div>}
         </div>
-        <div style={{ fontSize: 12, color: '#666' }}>{today}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 12, color: '#666' }}>{today}</div>
+          <button
+            onClick={() => { setSaveLabel(`Premier – ${today}`); setShowSaveDialog(true); }}
+            style={{
+              padding: '7px 16px', background: '#F97316', border: 'none',
+              borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+              color: '#fff', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            ↓ Save Version
+          </button>
+        </div>
       </div>
+
+      {/* Save dialog */}
+      {showSaveDialog && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowSaveDialog(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 12,
+            padding: 28, width: 420, display: 'flex', flexDirection: 'column', gap: 16,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Save Premier Version</h3>
+              <button onClick={() => setShowSaveDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: 22 }}>×</button>
+            </div>
+            <p style={{ fontSize: 13, color: '#888' }}>Give this version a label to identify it later.</p>
+            <input
+              value={saveLabel}
+              onChange={e => setSaveLabel(e.target.value)}
+              placeholder="e.g. Premier v1 – Client Review"
+              autoFocus
+              style={{ background: '#111', border: '1px solid #333', borderRadius: 6, padding: '9px 12px', color: '#fff', fontSize: 13, width: '100%' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowSaveDialog(false)} style={{ padding: '8px 16px', background: 'none', border: '1px solid #333', borderRadius: 6, cursor: 'pointer', color: '#888', fontSize: 13 }}>
+                Cancel
+              </button>
+              <button
+                disabled={saving || !saveLabel.trim()}
+                onClick={async () => {
+                  setSaving(true);
+                  const res = await authFetch(`/api/projects/${id}/premier-saves`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ label: saveLabel.trim() }),
+                  });
+                  const saved = await res.json();
+                  setPremierSaves(s => [saved, ...s]);
+                  setShowSaveDialog(false);
+                  setSaving(false);
+                }}
+                style={{ padding: '8px 20px', background: '#F97316', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 700, opacity: saving ? 0.6 : 1 }}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+
+            {/* Previous saves */}
+            {premierSaves.length > 0 && (
+              <div style={{ borderTop: '1px solid #2A2A2A', paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  Saved Versions
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                  {premierSaves.map(s => (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#111', borderRadius: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: '#ccc', fontWeight: 500 }}>{s.label}</div>
+                        <div style={{ fontSize: 11, color: '#555' }}>
+                          {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await authFetch(`/api/premier-saves/${s.id}`, { method: 'DELETE' });
+                          setPremierSaves(prev => prev.filter(x => x.id !== s.id));
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 16 }}
+                        title="Delete this save"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '48px 48px 80px' }}>
 

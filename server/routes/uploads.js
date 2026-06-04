@@ -112,4 +112,72 @@ router.delete('/venue-files/:id', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/projects/:id/all-files — all spec_files + venue_files for a project
+router.get('/projects/:id/all-files', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        sf.id, sf.filename, sf.original_name, sf.file_type, sf.created_at,
+        sf.specification_id, NULL::int AS project_id,
+        a.name AS asset_name, 'spec' AS source
+      FROM spec_files sf
+      JOIN specifications sp ON sp.id = sf.specification_id
+      JOIN assets a ON a.id = sp.asset_id
+      WHERE a.project_id = $1
+      UNION ALL
+      SELECT
+        vf.id, vf.filename, vf.original_name, 'venue' AS file_type, vf.created_at,
+        NULL::int AS specification_id, vf.project_id,
+        'Site Visit / Venue' AS asset_name, 'venue' AS source
+      FROM venue_files vf
+      WHERE vf.project_id = $1
+      ORDER BY created_at DESC
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// PUT /api/files/:id/replace — replace a spec file with a new upload
+router.put('/files/:id/replace', requireAuth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+  try {
+    // Delete old file from disk
+    const old = await pool.query('SELECT * FROM spec_files WHERE id=$1', [req.params.id]);
+    if (!old.rows[0]) return res.status(404).json({ error: 'File not found.' });
+    const oldPath = path.join(uploadDir, old.rows[0].filename);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    // Update DB record
+    const { rows } = await pool.query(
+      'UPDATE spec_files SET filename=$1, original_name=$2, created_at=NOW() WHERE id=$3 RETURNING *',
+      [req.file.filename, req.file.originalname, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// PUT /api/venue-files/:id/replace — replace a venue file
+router.put('/venue-files/:id/replace', requireAuth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+  try {
+    const old = await pool.query('SELECT * FROM venue_files WHERE id=$1', [req.params.id]);
+    if (!old.rows[0]) return res.status(404).json({ error: 'File not found.' });
+    const oldPath = path.join(uploadDir, old.rows[0].filename);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    const { rows } = await pool.query(
+      'UPDATE venue_files SET filename=$1, original_name=$2, created_at=NOW() WHERE id=$3 RETURNING *',
+      [req.file.filename, req.file.originalname, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 module.exports = router;

@@ -133,4 +133,29 @@ router.delete('/vendors/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/projects/:id/premier-saves
+router.get('/projects/:id/premier-saves', requireAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM premier_saves WHERE project_id=$1 ORDER BY created_at DESC',
+    [req.params.id]
+  );
+  res.json(rows);
+});
+
+// POST /api/projects/:id/premier-saves
+router.post('/projects/:id/premier-saves', requireAuth, async (req, res) => {
+  const { label } = req.body;
+  const { rows } = await pool.query(
+    'INSERT INTO premier_saves (project_id, label) VALUES ($1,$2) RETURNING *',
+    [req.params.id, label]
+  );
+  res.status(201).json(rows[0]);
+});
+
+// DELETE /api/premier-saves/:id
+router.delete('/premier-saves/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM premier_saves WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 module.exports = router;
