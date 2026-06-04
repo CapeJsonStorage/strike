@@ -1,5 +1,5 @@
 import { authFetch } from '../App.jsx';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 
 function ProjectTabs({ id, active }) {
@@ -152,6 +152,9 @@ export default function Premier() {
   const [lightboxItem, setLightboxItem] = useState(null);
   const [premierSaves, setPremierSaves] = useState([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showVersionMenu, setShowVersionMenu] = useState(false);
+  const [activeVersion, setActiveVersion] = useState(null); // null = "Current"
+  const versionMenuRef = useRef(null);
   const [saveLabel, setSaveLabel] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -179,6 +182,17 @@ export default function Premier() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
+
+  // Close version dropdown on outside click
+  useEffect(() => {
+    function handler(e) {
+      if (versionMenuRef.current && !versionMenuRef.current.contains(e.target)) {
+        setShowVersionMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   if (loading) {
     return (
@@ -213,14 +227,73 @@ export default function Premier() {
         <span style={{ color: '#333' }}>›</span>
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{project?.name}</span>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontSize: 12, color: '#666' }}>{today}</div>
+
+          {/* Version selector dropdown */}
+          {premierSaves.length > 0 && (
+            <div ref={versionMenuRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowVersionMenu(v => !v)}
+                style={{
+                  padding: '7px 14px', background: '#222', border: '1px solid #333',
+                  borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  color: activeVersion ? '#F97316' : '#aaa',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {activeVersion ? activeVersion.label : 'Current'} ▾
+              </button>
+              {showVersionMenu && (
+                <div style={{
+                  position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 50,
+                  background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8,
+                  minWidth: 220, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  overflow: 'hidden',
+                }}>
+                  {/* Current option */}
+                  <button
+                    onClick={() => { setActiveVersion(null); setShowVersionMenu(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '10px 14px',
+                      background: !activeVersion ? 'rgba(249,115,22,0.1)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      borderBottom: '1px solid #2A2A2A',
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: !activeVersion ? '#F97316' : '#ccc' }}>Current</div>
+                    <div style={{ fontSize: 11, color: '#555' }}>Latest approved assets</div>
+                  </button>
+                  {premierSaves.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => { setActiveVersion(s); setShowVersionMenu(false); }}
+                      style={{
+                        width: '100%', textAlign: 'left', padding: '10px 14px',
+                        background: activeVersion?.id === s.id ? 'rgba(249,115,22,0.1)' : 'none',
+                        border: 'none', cursor: 'pointer',
+                        borderBottom: '1px solid #2A2A2A',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                      onMouseLeave={e => e.currentTarget.style.background = activeVersion?.id === s.id ? 'rgba(249,115,22,0.1)' : 'none'}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600, color: activeVersion?.id === s.id ? '#F97316' : '#ccc' }}>{s.label}</div>
+                      <div style={{ fontSize: 11, color: '#555' }}>
+                        {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={() => { setSaveLabel(`Premier – ${today}`); setShowSaveDialog(true); }}
             style={{
               padding: '7px 16px', background: '#F97316', border: 'none',
               borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700,
-              color: '#fff', display: 'flex', alignItems: 'center', gap: 6,
+              color: '#fff',
             }}
           >
             ↓ Save Version
@@ -230,6 +303,28 @@ export default function Premier() {
 
       {/* Tab nav */}
       <ProjectTabs id={id} active="premier" />
+
+      {/* Active version banner */}
+      {activeVersion && (
+        <div style={{
+          background: 'rgba(249,115,22,0.08)', borderBottom: '1px solid rgba(249,115,22,0.2)',
+          padding: '8px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#F97316', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Viewing:</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{activeVersion.label}</span>
+            <span style={{ fontSize: 11, color: '#666' }}>
+              · saved {new Date(activeVersion.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          </div>
+          <button
+            onClick={() => setActiveVersion(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#666', textDecoration: 'underline' }}
+          >
+            ← Back to Current
+          </button>
+        </div>
+      )}
 
       {/* Save dialog */}
       {showSaveDialog && (
@@ -283,22 +378,38 @@ export default function Premier() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
                   Saved Versions
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
                   {premierSaves.map(s => (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#111', borderRadius: 6 }}>
-                      <div>
-                        <div style={{ fontSize: 13, color: '#ccc', fontWeight: 500 }}>{s.label}</div>
+                    <div key={s.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 10px', background: activeVersion?.id === s.id ? 'rgba(249,115,22,0.1)' : '#111',
+                      border: `1px solid ${activeVersion?.id === s.id ? 'rgba(249,115,22,0.3)' : 'transparent'}`,
+                      borderRadius: 6,
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: activeVersion?.id === s.id ? '#F97316' : '#ccc', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</div>
                         <div style={{ fontSize: 11, color: '#555' }}>
                           {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
-                      <button
-                        onClick={async () => {
-                          await authFetch(`/api/premier-saves/${s.id}`, { method: 'DELETE' });
-                          setPremierSaves(prev => prev.filter(x => x.id !== s.id));
-                        }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 16 }}
-                        title="Delete this save"
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
+                        <button
+                          onClick={() => { setActiveVersion(s); setShowSaveDialog(false); }}
+                          style={{
+                            padding: '4px 10px', background: '#F97316', border: 'none',
+                            borderRadius: 5, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#fff',
+                          }}
+                        >
+                          Open
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await authFetch(`/api/premier-saves/${s.id}`, { method: 'DELETE' });
+                            setPremierSaves(prev => prev.filter(x => x.id !== s.id));
+                            if (activeVersion?.id === s.id) setActiveVersion(null);
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 16 }}
+                          title="Delete this save"
                       >×</button>
                     </div>
                   ))}
