@@ -19,62 +19,100 @@ function formatDate(str) {
 
 // ── Lightbox ─────────────────────────────────────────────────────────────────
 function Lightbox({ item, onClose }) {
+  const mediaFiles = item.files.filter(f => isVideo(f.original_name) || isImage(f.original_name));
+  const [idx, setIdx] = useState(0);
+  const current = mediaFiles[idx];
+  const isVid = current && isVideo(current.original_name);
+  const hasMultiple = mediaFiles.length > 1;
+
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') setIdx(i => (i + 1) % mediaFiles.length);
+      if (e.key === 'ArrowLeft') setIdx(i => (i - 1 + mediaFiles.length) % mediaFiles.length);
+    }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const mediaFile = item.files.find(f => isVideo(f.original_name) || isImage(f.original_name));
-  const isVid = mediaFile && isVideo(mediaFile.original_name);
+  }, [onClose, mediaFiles.length]);
 
   return (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.92)',
+        background: 'rgba(0,0,0,0.93)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 32,
       }}
     >
-      <button
-        onClick={onClose}
-        style={{
-          position: 'fixed', top: 20, right: 28,
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: '#888', fontSize: 32, lineHeight: 1, zIndex: 1001,
-        }}
-      >
-        ×
-      </button>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '90vw', maxHeight: '88vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        {mediaFile ? (
+      {/* Close */}
+      <button onClick={onClose} style={{
+        position: 'fixed', top: 20, right: 28, background: 'none', border: 'none',
+        cursor: 'pointer', color: '#888', fontSize: 36, lineHeight: 1, zIndex: 1001,
+      }}>×</button>
+
+      {/* Prev arrow */}
+      {hasMultiple && (
+        <button
+          onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + mediaFiles.length) % mediaFiles.length); }}
+          style={{
+            position: 'fixed', left: 20, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '50%', width: 48, height: 48, cursor: 'pointer',
+            color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1001,
+          }}
+        >‹</button>
+      )}
+
+      {/* Media */}
+      <div onClick={e => e.stopPropagation()} style={{ maxWidth: '88vw', maxHeight: '88vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {current ? (
           isVid ? (
-            <video
-              src={`/uploads/${mediaFile.filename}`}
-              controls autoPlay muted loop
-              style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8 }}
-            />
+            <video key={current.filename} src={`/uploads/${current.filename}`} controls autoPlay muted loop
+              style={{ maxWidth: '88vw', maxHeight: '82vh', borderRadius: 8 }} />
           ) : (
-            <img
-              src={`/uploads/${mediaFile.filename}`}
-              alt={item.asset.name}
-              style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, objectFit: 'contain' }}
-            />
+            <img key={current.filename} src={`/uploads/${current.filename}`} alt={item.asset.name}
+              style={{ maxWidth: '88vw', maxHeight: '82vh', borderRadius: 8, objectFit: 'contain' }} />
           )
         ) : (
-          <div style={{ color: '#444', fontSize: 14 }}>No media file available</div>
+          <div style={{ color: '#444', fontSize: 14 }}>No media</div>
         )}
       </div>
+
+      {/* Next arrow */}
+      {hasMultiple && (
+        <button
+          onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % mediaFiles.length); }}
+          style={{
+            position: 'fixed', right: 20, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '50%', width: 48, height: 48, cursor: 'pointer',
+            color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1001,
+          }}
+        >›</button>
+      )}
+
+      {/* Bottom: asset name + counter */}
       <div style={{
-        position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-        color: '#888', fontSize: 13, pointerEvents: 'none',
+        position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none',
       }}>
-        {item.asset.name} — press Esc or click outside to close
+        <span style={{ color: '#ccc', fontSize: 14, fontWeight: 600 }}>{item.asset.name}</span>
+        {hasMultiple && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {mediaFiles.map((_, i) => (
+              <div key={i} style={{
+                width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
+                background: i === idx ? '#F97316' : 'rgba(255,255,255,0.25)',
+                transition: 'all 0.2s',
+              }} />
+            ))}
+          </div>
+        )}
+        <span style={{ color: '#555', fontSize: 12 }}>
+          {hasMultiple ? `${idx + 1} / ${mediaFiles.length} — ` : ''}Esc to close{hasMultiple ? ' · ← → to navigate' : ''}
+        </span>
       </div>
     </div>
   );
@@ -310,16 +348,6 @@ export default function Premier() {
                     display: 'flex', flexDirection: 'column',
                     justifyContent: 'center', gap: 18, overflowY: 'auto',
                   }}>
-                    <span style={{
-                      padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                      background: 'rgba(34,197,94,0.12)', color: '#22C55E',
-                      border: '1px solid rgba(34,197,94,0.3)',
-                      display: 'inline-block', letterSpacing: '0.06em', textTransform: 'uppercase',
-                      alignSelf: 'flex-start',
-                    }}>
-                      ✓ Approved
-                    </span>
-
                     <h2 style={{ fontSize: 26, fontWeight: 800, margin: 0, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
                       {asset.name}
                     </h2>
@@ -342,13 +370,6 @@ export default function Premier() {
                       )}
                     </div>
 
-                    {spec.designer && (
-                      <div style={{ fontSize: 13, color: '#888' }}>
-                        <span style={{ color: '#555', marginRight: 6 }}>Designer</span>
-                        <span style={{ color: '#ccc', fontWeight: 600 }}>{spec.designer}</span>
-                      </div>
-                    )}
-
                     {spec.copy && (
                       <div style={{
                         fontSize: 13, color: '#aaa', lineHeight: 1.6, fontStyle: 'italic',
@@ -356,12 +377,6 @@ export default function Premier() {
                         maxHeight: 100, overflow: 'hidden',
                       }}>
                         "{spec.copy.length > 180 ? spec.copy.slice(0, 180) + '…' : spec.copy}"
-                      </div>
-                    )}
-
-                    {spec.due_approved && (
-                      <div style={{ fontSize: 12, color: '#555' }}>
-                        Approved by <span style={{ color: '#22C55E', fontWeight: 600 }}>{formatDate(spec.due_approved)}</span>
                       </div>
                     )}
 
