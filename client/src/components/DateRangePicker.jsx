@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 function parseDate(str) {
   if (!str) return null;
-  const [y, m, d] = str.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  const parts = str.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
 function formatDate(d) {
@@ -18,14 +19,16 @@ function formatDate(d) {
 }
 
 function formatDisplay(str) {
-  if (!str) return null;
   const d = parseDate(str);
   if (!d) return null;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function sameDay(a, b) {
-  return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return a && b &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
 }
 
 function isInRange(day, start, end) {
@@ -35,10 +38,26 @@ function isInRange(day, start, end) {
 
 export default function DateRangePicker({ startDate, endDate, onChange }) {
   const today = new Date();
-  const [viewYear, setViewYear] = useState(startDate ? parseDate(startDate).getFullYear() : today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(startDate ? parseDate(startDate).getMonth() : today.getMonth());
-  // picking: 'start' or 'end'
+
+  // Safe initial month/year — fall back to today if startDate is null/invalid
+  const initFromDate = parseDate(startDate);
+  const [viewYear, setViewYear] = useState(initFromDate ? initFromDate.getFullYear() : today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initFromDate ? initFromDate.getMonth() : today.getMonth());
   const [picking, setPicking] = useState('start');
+  const [locked, setLocked] = useState(!!(startDate && endDate));
+
+  // When props arrive after initial render (e.g. loaded from DB), sync the view
+  useEffect(() => {
+    const d = parseDate(startDate);
+    if (d) {
+      setViewYear(d.getFullYear());
+      setViewMonth(d.getMonth());
+    }
+    // If both dates present on load, lock automatically
+    if (startDate && endDate) {
+      setLocked(true);
+    }
+  }, [startDate, endDate]);
 
   const startD = parseDate(startDate);
   const endD = parseDate(endDate);
@@ -53,26 +72,34 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
   }
 
   function handleDayClick(day) {
+    if (locked) return;
     const ds = formatDate(day);
     if (picking === 'start') {
-      // If new start is after current end, clear end
-      if (endD && day > endD) {
-        onChange({ start: ds, end: null });
-      } else {
-        onChange({ start: ds, end: endDate || null });
-      }
+      onChange({ start: ds, end: null });
       setPicking('end');
     } else {
-      // picking end
       if (startD && day < startD) {
-        // clicked before start — reset and treat as new start
+        // clicked before start — swap
         onChange({ start: ds, end: null });
         setPicking('end');
       } else {
         onChange({ start: startDate || null, end: ds });
         setPicking('start');
+        // Auto-lock once both are set
+        setLocked(true);
       }
     }
+  }
+
+  function handleClear() {
+    onChange({ start: null, end: null });
+    setPicking('start');
+    setLocked(false);
+  }
+
+  function handleEdit() {
+    setLocked(false);
+    setPicking('start');
   }
 
   // Build calendar grid
@@ -82,35 +109,70 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
 
-  // Display label
+  // Range label
   let rangeLabel = null;
   if (startDate || endDate) {
-    const sLabel = startDate ? formatDisplay(startDate) : '?';
-    const eLabel = endDate ? formatDisplay(endDate) : '?';
+    const sLabel = formatDisplay(startDate) || '?';
+    const eLabel = formatDisplay(endDate) || '?';
     if (startDate && endDate) rangeLabel = `${sLabel} – ${eLabel}`;
     else if (startDate) rangeLabel = `From ${sLabel}`;
     else rangeLabel = `Until ${eLabel}`;
   }
 
+  // --- LOCKED VIEW: just show the saved range as a pill with Edit button ---
+  if (locked && startDate && endDate) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{
+          padding: '10px 16px',
+          background: 'rgba(249,115,22,0.1)',
+          border: '1px solid rgba(249,115,22,0.35)',
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>📅</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#F97316' }}>
+              {formatDisplay(startDate)} – {formatDisplay(endDate)}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={handleEdit}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', textDecoration: 'underline' }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={handleClear}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--danger)', textDecoration: 'underline' }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- OPEN VIEW: full calendar ---
   return (
     <div style={{ userSelect: 'none' }}>
-      {/* Month navigation */}
+      {/* Month nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <button
-          type="button"
-          onClick={prevMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '4px 8px', borderRadius: 4 }}
-        >
+        <button type="button" onClick={prevMonth}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: '4px 8px', borderRadius: 4 }}>
           ‹
         </button>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
           {MONTHS[viewMonth]} {viewYear}
         </span>
-        <button
-          type="button"
-          onClick={nextMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '4px 8px', borderRadius: 4 }}
-        >
+        <button type="button" onClick={nextMonth}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: '4px 8px', borderRadius: 4 }}>
           ›
         </button>
       </div>
@@ -118,7 +180,7 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
       {/* Day headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
         {DAYS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', padding: '2px 0', textTransform: 'uppercase' }}>
+          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', padding: '2px 0' }}>
             {d}
           </div>
         ))}
@@ -127,7 +189,7 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
       {/* Day cells */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
         {cells.map((day, idx) => {
-          if (!day) return <div key={`empty-${idx}`} />;
+          if (!day) return <div key={`e-${idx}`} />;
           const isStart = startD && sameDay(day, startD);
           const isEnd = endD && sameDay(day, endD);
           const inRange = isInRange(day, startD, endD);
@@ -146,66 +208,69 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
                 cursor: 'pointer',
                 fontSize: 12,
                 fontWeight: isEndpoint ? 700 : isToday ? 600 : 400,
-                background: isEndpoint ? '#F97316' : inRange ? 'rgba(249,115,22,0.25)' : 'transparent',
+                background: isEndpoint ? '#F97316' : inRange ? 'rgba(249,115,22,0.22)' : 'transparent',
                 color: isEndpoint ? '#fff' : inRange ? '#F97316' : isToday ? '#F97316' : 'var(--text-primary)',
                 textAlign: 'center',
                 transition: 'all 0.1s',
-                position: 'relative',
               }}
-              onMouseEnter={e => {
-                if (!isEndpoint) e.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={e => {
-                if (!isEndpoint) e.currentTarget.style.background = inRange ? 'rgba(249,115,22,0.25)' : 'transparent';
-              }}
+              onMouseEnter={e => { if (!isEndpoint) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+              onMouseLeave={e => { if (!isEndpoint) e.currentTarget.style.background = inRange ? 'rgba(249,115,22,0.22)' : 'transparent'; }}
             >
               {day.getDate()}
-              {isEndpoint && (
-                <span style={{
-                  position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
-                  width: 4, height: 4, borderRadius: '50%', background: '#fff', display: 'block',
-                }} />
-              )}
             </button>
           );
         })}
       </div>
 
-      {/* Picking hint */}
+      {/* Hint */}
       <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-        {picking === 'start' ? 'Click to set start date' : 'Click to set end date'}
+        {!startDate ? 'Click to set start date' : !endDate ? 'Click to set end date' : ''}
       </div>
 
-      {/* Range label */}
+      {/* Range preview */}
       {rangeLabel && (
         <div style={{
-          marginTop: 10,
-          padding: '6px 12px',
+          marginTop: 10, padding: '8px 14px',
           background: 'rgba(249,115,22,0.1)',
           border: '1px solid rgba(249,115,22,0.3)',
-          borderRadius: 6,
-          fontSize: 12,
-          fontWeight: 600,
-          color: '#F97316',
-          textAlign: 'center',
+          borderRadius: 6, fontSize: 12, fontWeight: 600,
+          color: '#F97316', textAlign: 'center',
         }}>
           {rangeLabel}
         </div>
       )}
 
-      {/* Clear button */}
-      {(startDate || endDate) && (
-        <button
-          type="button"
-          onClick={() => { onChange({ start: null, end: null }); setPicking('start'); }}
-          style={{
-            marginTop: 8, width: '100%', background: 'none', border: 'none',
-            cursor: 'pointer', fontSize: 11, color: 'var(--text-dim)', textDecoration: 'underline',
-          }}
-        >
-          Clear dates
-        </button>
-      )}
+      {/* Save / Clear */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        {startDate && endDate && (
+          <button
+            type="button"
+            onClick={() => { setLocked(true); }}
+            style={{
+              flex: 1, padding: '7px 0',
+              background: '#F97316', border: 'none',
+              borderRadius: 6, cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, color: '#fff',
+            }}
+          >
+            ✓ Save Dates
+          </button>
+        )}
+        {(startDate || endDate) && (
+          <button
+            type="button"
+            onClick={handleClear}
+            style={{
+              flex: 1, background: 'none',
+              border: '1px solid var(--border)',
+              borderRadius: 6, cursor: 'pointer',
+              fontSize: 12, color: 'var(--text-dim)', padding: '7px 0',
+            }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
     </div>
   );
 }
