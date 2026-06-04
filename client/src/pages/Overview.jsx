@@ -305,6 +305,7 @@ export default function Overview() {
                       startDate={form.timeline_start}
                       endDate={form.timeline_end}
                       onChange={({ start, end }) => setForm(f => ({ ...f, timeline_start: start, timeline_end: end }))}
+                      onSave={handleSave}
                     />
                   </div>
                 </div>

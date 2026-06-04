@@ -5,7 +5,9 @@ const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 function parseDate(str) {
   if (!str) return null;
-  const parts = str.split('-').map(Number);
+  // Handle both "YYYY-MM-DD" and ISO timestamps "YYYY-MM-DDT..." from Postgres
+  const clean = String(str).slice(0, 10);
+  const parts = clean.split('-').map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) return null;
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
@@ -36,7 +38,7 @@ function isInRange(day, start, end) {
   return day > start && day < end;
 }
 
-export default function DateRangePicker({ startDate, endDate, onChange }) {
+export default function DateRangePicker({ startDate, endDate, onChange, onSave }) {
   const today = new Date();
 
   // Safe initial month/year — fall back to today if startDate is null/invalid
@@ -245,7 +247,7 @@ export default function DateRangePicker({ startDate, endDate, onChange }) {
         {startDate && endDate && (
           <button
             type="button"
-            onClick={() => { setLocked(true); }}
+            onClick={() => { setLocked(true); if (onSave) onSave(); }}
             style={{
               flex: 1, padding: '7px 0',
               background: '#F97316', border: 'none',

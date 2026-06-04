@@ -9,7 +9,9 @@ function isVideo(fn) { return fn && fn.split('.').pop().toLowerCase() === 'mp4';
 
 function formatDate(str) {
   if (!str) return null;
-  const parts = str.split('-').map(Number);
+  // Handle both "YYYY-MM-DD" and ISO "YYYY-MM-DDT..." from Postgres
+  const clean = String(str).slice(0, 10); // take just the date part
+  const parts = clean.split('-').map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) return null;
   const d = new Date(parts[0], parts[1] - 1, parts[2]);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -177,12 +179,6 @@ export default function Premier() {
                   <span style={{ fontSize: 14 }}>📅</span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: '#F97316' }}>{timelineLabel}</span>
                 </div>
-                {project?.budget && (
-                  <div style={{ marginTop: 12, fontSize: 13, color: '#888' }}>
-                    <span style={{ color: '#555', marginRight: 6 }}>Budget</span>
-                    <span style={{ color: '#ccc', fontWeight: 600 }}>{project.budget}</span>
-                  </div>
-                )}
               </div>
             )}
 
