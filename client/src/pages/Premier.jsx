@@ -1,6 +1,30 @@
 import { authFetch } from '../App.jsx';
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
+
+function ProjectTabs({ id, active }) {
+  const tabs = [
+    { key: 'overview',       label: 'Overview',       path: `/projects/${id}/overview` },
+    { key: 'assets',         label: 'Assets',         path: `/projects/${id}/assets` },
+    { key: 'specifications', label: 'Specifications', path: `/projects/${id}/specifications` },
+    { key: 'uploads',        label: 'Uploads',        path: `/projects/${id}/uploads` },
+    { key: 'premier',        label: 'Premier',        path: `/projects/${id}/premier` },
+  ];
+  return (
+    <div className="tab-nav" style={{ background: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}>
+      {tabs.map(t => (
+        <NavLink key={t.key} to={t.path} className={active === t.key ? 'active' : ''}
+          style={({ isActive }) => ({
+            color: isActive ? '#F97316' : '#666',
+            borderBottomColor: isActive ? '#F97316' : 'transparent',
+          })}
+        >
+          {t.label}
+        </NavLink>
+      ))}
+    </div>
+  );
+}
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
 
@@ -176,24 +200,19 @@ export default function Premier() {
       {/* Lightbox */}
       {lightboxItem && <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />}
 
-      {/* Sticky header */}
+      {/* Top bar */}
       <div style={{
         background: '#1A1A1A', borderBottom: '1px solid #2A2A2A',
-        padding: '18px 48px', display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10,
+        padding: '14px 32px', display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <NavLink to={`/projects/${id}/overview`}
-            style={{ color: '#666', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-            ← Back
-          </NavLink>
-          <div style={{ width: 1, height: 20, background: '#2A2A2A' }} />
-          <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', color: '#F97316' }}>STRIKE</span>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{project?.name}</div>
-          {project?.client && <div style={{ fontSize: 13, color: '#888' }}>{project.client}</div>}
-        </div>
+        <NavLink to="/" style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.04em', color: '#F97316' }}>
+          STRIKE
+        </NavLink>
+        <span style={{ color: '#333' }}>›</span>
+        <span style={{ color: '#666', fontSize: 13 }}>SANDBOX</span>
+        <span style={{ color: '#333' }}>›</span>
+        <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{project?.name}</span>
+        <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 12, color: '#666' }}>{today}</div>
           <button
@@ -208,6 +227,9 @@ export default function Premier() {
           </button>
         </div>
       </div>
+
+      {/* Tab nav */}
+      <ProjectTabs id={id} active="premier" />
 
       {/* Save dialog */}
       {showSaveDialog && (

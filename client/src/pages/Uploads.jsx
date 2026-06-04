@@ -18,6 +18,7 @@ function ProjectTabs({ id, active }) {
     { key: 'assets',          label: 'Assets',          path: `/projects/${id}/assets` },
     { key: 'specifications',  label: 'Specifications',  path: `/projects/${id}/specifications` },
     { key: 'uploads',         label: 'Uploads',         path: `/projects/${id}/uploads` },
+    { key: 'premier',         label: 'Premier',         path: `/projects/${id}/premier` },
   ];
   return (
     <div className="tab-nav">
@@ -173,6 +174,24 @@ export default function Uploads() {
 
   const filtered = filter === 'all' ? files : files.filter(f => f.file_type === filter);
 
+  // Build version number map: for each specification_id, sort versions ascending by created_at
+  // and assign Version_01, Version_02, etc.
+  const versionMap = {};
+  const versionGroups = {};
+  files.forEach(f => {
+    if (f.file_type === 'version' && f.specification_id) {
+      if (!versionGroups[f.specification_id]) versionGroups[f.specification_id] = [];
+      versionGroups[f.specification_id].push(f);
+    }
+  });
+  Object.entries(versionGroups).forEach(([specId, group]) => {
+    // Sort ascending by created_at so earliest upload = Version_01
+    group.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    group.forEach((f, i) => {
+      versionMap[f.id] = `Version_${String(i + 1).padStart(2, '0')}`;
+    });
+  });
+
   const filterOptions = [
     { value: 'all',       label: `All (${files.length})` },
     { value: 'version',   label: `Versions (${files.filter(f => f.file_type === 'version').length})` },
@@ -290,15 +309,23 @@ export default function Uploads() {
                         {file.asset_name}
                       </td>
 
-                      {/* Type badge */}
+                      {/* Type badge + version number */}
                       <td style={{ padding: '10px 16px' }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                          background: `${typeInfo.color}18`, color: typeInfo.color,
-                          border: `1px solid ${typeInfo.color}40`, textTransform: 'capitalize',
-                        }}>
-                          {typeInfo.label}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                            background: `${typeInfo.color}18`, color: typeInfo.color,
+                            border: `1px solid ${typeInfo.color}40`, textTransform: 'capitalize',
+                            display: 'inline-block',
+                          }}>
+                            {typeInfo.label}
+                          </span>
+                          {versionMap[file.id] && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                              {versionMap[file.id]}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Date */}

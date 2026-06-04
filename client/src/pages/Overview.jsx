@@ -9,6 +9,7 @@ function ProjectTabs({ id, active }) {
     { key: 'assets',         label: 'Assets',         path: `/projects/${id}/assets` },
     { key: 'specifications', label: 'Specifications', path: `/projects/${id}/specifications` },
     { key: 'uploads',        label: 'Uploads',        path: `/projects/${id}/uploads` },
+    { key: 'premier',        label: 'Premier',        path: `/projects/${id}/premier` },
   ];
   return (
     <div className="tab-nav">
