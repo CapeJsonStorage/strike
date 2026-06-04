@@ -21,13 +21,20 @@ function ProjectTabs({ id, active }) {
   );
 }
 
+function formatDueDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export default function Assets() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [assets, setAssets] = useState([]);
-  const [assetStatuses, setAssetStatuses] = useState({}); // assetId -> status string
-  const [assetDesigners, setAssetDesigners] = useState({}); // assetId -> designer name
+  const [assetStatuses, setAssetStatuses] = useState({});
+  const [assetDesigners, setAssetDesigners] = useState({});
+  const [assetDueDates, setAssetDueDates] = useState({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', type: 'digital' });
@@ -43,9 +50,9 @@ export default function Assets() {
       const list = Array.isArray(assetList) ? assetList : [];
       setAssets(list);
 
-      // Fetch spec status + designer for each asset in parallel
       const statusMap = {};
       const designerMap = {};
+      const dueDateMap = {};
       await Promise.all(list.map(async asset => {
         try {
           const res = await authFetch(`/api/assets/${asset.id}/specifications`);
@@ -53,17 +60,21 @@ export default function Assets() {
           if (specs && specs.length > 0) {
             statusMap[asset.id] = specs[0].status;
             designerMap[asset.id] = specs[0].designer || '—';
+            dueDateMap[asset.id] = specs[0].due_approved || null;
           } else {
             statusMap[asset.id] = 'producer_input';
             designerMap[asset.id] = '—';
+            dueDateMap[asset.id] = null;
           }
         } catch {
           statusMap[asset.id] = 'producer_input';
           designerMap[asset.id] = '—';
+          dueDateMap[asset.id] = null;
         }
       }));
       setAssetStatuses(statusMap);
       setAssetDesigners(designerMap);
+      setAssetDueDates(dueDateMap);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -84,6 +95,7 @@ export default function Assets() {
       setAssets(a => [...a, data]);
       setAssetStatuses(s => ({ ...s, [data.id]: 'producer_input' }));
       setAssetDesigners(s => ({ ...s, [data.id]: '—' }));
+      setAssetDueDates(s => ({ ...s, [data.id]: null }));
       setNewAsset({ name: '', type: 'digital' });
       setShowForm(false);
     } catch {
@@ -187,10 +199,10 @@ export default function Assets() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Asset Name', 'Type', 'Designer', 'Created', 'Status', 'Actions'].map((h, i) => (
+                  {['Asset Name', 'Type', 'Designer', 'Created', 'Status', 'Due Date', 'Actions'].map((h, i) => (
                     <th key={h} style={{
                       padding: '12px 20px',
-                      textAlign: i === 5 ? 'right' : 'left',
+                      textAlign: i === 6 ? 'right' : 'left',
                       fontSize: 11,
                       fontWeight: 700,
                       color: 'var(--text-muted)',
@@ -228,6 +240,9 @@ export default function Assets() {
                     </td>
                     <td style={{ padding: '14px 20px' }}>
                       <StatusBadge status={assetStatuses[asset.id] || 'producer_input'} size="sm" />
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: 12, color: assetDueDates[asset.id] ? '#22C55E' : 'var(--text-dim)', fontWeight: assetDueDates[asset.id] ? 600 : 400 }}>
+                      {formatDueDate(assetDueDates[asset.id])}
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

@@ -51,15 +51,18 @@ router.get('/projects/:id', requireAuth, async (req, res) => {
 
 // PUT /api/projects/:id
 router.put('/projects/:id', requireAuth, async (req, res) => {
-  const { name, client, lead_producer, assistant_producer, project_overview, timeline, ros, budget, status, section } = req.body;
+  const { name, client, lead_producer, assistant_producer, project_overview, timeline, ros, budget, status, section, timeline_start, timeline_end, venue_name, venue_location, venue_contact } = req.body;
   try {
     const result = await pool.query(
       `UPDATE projects SET
         name=$1, client=$2, lead_producer=$3, assistant_producer=$4,
         project_overview=$5, timeline=$6, ros=$7, budget=$8,
-        status=$9, section=$10, updated_at=NOW()
-       WHERE id=$11 RETURNING *`,
-      [name, client, lead_producer, assistant_producer, project_overview, timeline, ros, budget, status, section, req.params.id]
+        status=$9, section=$10,
+        timeline_start=$11, timeline_end=$12,
+        venue_name=$13, venue_location=$14, venue_contact=$15,
+        updated_at=NOW()
+       WHERE id=$16 RETURNING *`,
+      [name, client, lead_producer, assistant_producer, project_overview, timeline, ros, budget, status, section, timeline_start || null, timeline_end || null, venue_name, venue_location, venue_contact, req.params.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Project not found.' });
     res.json(result.rows[0]);
@@ -96,6 +99,38 @@ router.get('/projects/:id/status-summary', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server error.' });
   }
+});
+
+// GET /api/projects/:id/vendors
+router.get('/projects/:id/vendors', requireAuth, async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM vendors WHERE project_id=$1 ORDER BY sort_order, created_at', [req.params.id]);
+  res.json(rows);
+});
+
+// POST /api/projects/:id/vendors
+router.post('/projects/:id/vendors', requireAuth, async (req, res) => {
+  const { vendor_name, vendor_type, vendor_contact } = req.body;
+  const { rows } = await pool.query(
+    'INSERT INTO vendors (project_id, vendor_name, vendor_type, vendor_contact) VALUES ($1,$2,$3,$4) RETURNING *',
+    [req.params.id, vendor_name, vendor_type, vendor_contact]
+  );
+  res.status(201).json(rows[0]);
+});
+
+// PUT /api/vendors/:id
+router.put('/vendors/:id', requireAuth, async (req, res) => {
+  const { vendor_name, vendor_type, vendor_contact } = req.body;
+  const { rows } = await pool.query(
+    'UPDATE vendors SET vendor_name=$1, vendor_type=$2, vendor_contact=$3 WHERE id=$4 RETURNING *',
+    [vendor_name, vendor_type, vendor_contact, req.params.id]
+  );
+  res.json(rows[0]);
+});
+
+// DELETE /api/vendors/:id
+router.delete('/vendors/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM vendors WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 module.exports = router;

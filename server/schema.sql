@@ -49,6 +49,39 @@ CREATE TABLE IF NOT EXISTS specifications (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add to projects table
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS timeline_start DATE;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS timeline_end DATE;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS venue_name VARCHAR(255);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS venue_location VARCHAR(255);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS venue_contact VARCHAR(255);
+
+-- Vendors table
+CREATE TABLE IF NOT EXISTS vendors (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  vendor_name VARCHAR(255) NOT NULL,
+  vendor_type VARCHAR(255),
+  vendor_contact VARCHAR(255),
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Venue files (site visit photos)
+CREATE TABLE IF NOT EXISTS venue_files (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  filename VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  uploaded_by VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add milestone dates to specifications
+ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_revision DATE;
+ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_client_review DATE;
+ALTER TABLE specifications ADD COLUMN IF NOT EXISTS due_approved DATE;
+
 CREATE TABLE IF NOT EXISTS spec_files (
   id SERIAL PRIMARY KEY,
   specification_id INTEGER REFERENCES specifications(id) ON DELETE CASCADE,

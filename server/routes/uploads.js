@@ -71,4 +71,45 @@ router.delete('/files/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/projects/:id/venue-files
+router.post('/projects/:id/venue-files', requireAuth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file.' });
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO venue_files (project_id, filename, original_name, uploaded_by) VALUES ($1,$2,$3,$4) RETURNING *',
+      [req.params.id, req.file.filename, req.file.originalname, 'user']
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// GET /api/projects/:id/venue-files
+router.get('/projects/:id/venue-files', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM venue_files WHERE project_id=$1 ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// DELETE /api/venue-files/:id
+router.delete('/venue-files/:id', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM venue_files WHERE id=$1', [req.params.id]);
+    if (rows[0]) {
+      const fp = path.join(uploadDir, rows[0].filename);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      await pool.query('DELETE FROM venue_files WHERE id=$1', [req.params.id]);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 module.exports = router;

@@ -38,15 +38,16 @@ router.post('/assets/:id/specifications', requireAuth, async (req, res) => {
 
 // PUT /api/specifications/:id
 router.put('/specifications/:id', requireAuth, async (req, res) => {
-  const { designer, copy, width, height, format, producer_notes, designer_notes, client_notes, internal_notes } = req.body;
+  const { designer, copy, width, height, format, producer_notes, designer_notes, client_notes, internal_notes, due_revision, due_client_review, due_approved } = req.body;
   try {
     const result = await pool.query(
       `UPDATE specifications SET
         designer=$1, copy=$2, width=$3, height=$4, format=$5,
         producer_notes=$6, designer_notes=$7, client_notes=$8, internal_notes=$9,
+        due_revision=$10, due_client_review=$11, due_approved=$12,
         updated_at=NOW()
-       WHERE id=$10 RETURNING *`,
-      [designer, copy, width, height, format, producer_notes, designer_notes, client_notes, internal_notes, req.params.id]
+       WHERE id=$13 RETURNING *`,
+      [designer, copy, width, height, format, producer_notes, designer_notes, client_notes, internal_notes, due_revision || null, due_client_review || null, due_approved || null, req.params.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Spec not found.' });
     res.json(result.rows[0]);

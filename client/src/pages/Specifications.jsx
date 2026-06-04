@@ -4,6 +4,7 @@ import { useParams, NavLink, useSearchParams } from 'react-router-dom';
 import StatusBadge, { STATUS_CONFIG } from '../components/StatusBadge.jsx';
 import FileUploadZone from '../components/FileUploadZone.jsx';
 import ColorTag from '../components/ColorTag.jsx';
+import MilestoneDatePicker from '../components/MilestoneDatePicker.jsx';
 
 function ProjectTabs({ id, active }) {
   const tabs = [
@@ -49,6 +50,37 @@ function uploadConfig(status) {
     default:
       return { label: 'Files', fileType: 'reference', filterType: null, readOnly: false };
   }
+}
+
+function stageBorderStyle(status) {
+  switch (status) {
+    case 'for_revision':
+      return {
+        border: '2px solid rgba(245,158,11,0.6)',
+        boxShadow: '0 0 0 2px rgba(245,158,11,0.15), inset 0 0 40px rgba(245,158,11,0.04)',
+        borderRadius: 10,
+      };
+    case 'for_client_revision':
+      return {
+        border: '2px solid rgba(249,115,22,0.6)',
+        boxShadow: '0 0 0 2px rgba(249,115,22,0.15), inset 0 0 40px rgba(249,115,22,0.04)',
+        borderRadius: 10,
+      };
+    case 'approved':
+      return {
+        border: '2px solid rgba(34,197,94,0.6)',
+        boxShadow: '0 0 0 2px rgba(34,197,94,0.15), inset 0 0 40px rgba(34,197,94,0.04)',
+        borderRadius: 10,
+      };
+    default:
+      return { borderRadius: 10 };
+  }
+}
+
+function formatDatePill(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function Specifications() {
@@ -107,13 +139,14 @@ export default function Specifications() {
             designer_notes: s.designer_notes || '',
             client_notes: s.client_notes || '',
             internal_notes: s.internal_notes || '',
+            due_revision: s.due_revision ? s.due_revision.slice(0, 10) : '',
+            due_client_review: s.due_client_review ? s.due_client_review.slice(0, 10) : '',
+            due_approved: s.due_approved ? s.due_approved.slice(0, 10) : '',
           });
-          // Load files
           const filesRes = await authFetch(`/api/specifications/${s.id}/files`, { });
           const filesData = await filesRes.json();
           setFiles(Array.isArray(filesData) ? filesData : []);
         } else {
-          // Create empty spec
           const res = await authFetch(`/api/assets/${selectedAsset.id}/specifications`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -124,6 +157,7 @@ export default function Specifications() {
           setForm({
             designer: '', copy: '', width: '', height: '', format: '',
             producer_notes: '', designer_notes: '', client_notes: '', internal_notes: '',
+            due_revision: '', due_client_review: '', due_approved: '',
           });
         }
       });
@@ -131,6 +165,10 @@ export default function Specifications() {
 
   function handleChange(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  }
+
+  function handleMilestoneChange(field, value) {
+    setForm(f => ({ ...f, [field]: value }));
   }
 
   async function handleSave() {
@@ -169,7 +207,7 @@ export default function Specifications() {
       const data = await res.json();
       if (res.ok) {
         setSpec(data);
-        setForm(f => ({ ...f })); // keep form
+        setForm(f => ({ ...f }));
       }
     } finally {
       setAdvancing(false);
@@ -257,9 +295,16 @@ export default function Specifications() {
           )}
         </div>
 
-        {/* Spec form */}
+        {/* Spec form area — with gradient border based on status */}
         {selectedAsset && spec ? (
-          <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: 24,
+              ...stageBorderStyle(spec.status),
+            }}
+          >
             {/* Status bar */}
             <div style={{
               background: 'var(--bg-card)',
@@ -381,6 +426,42 @@ export default function Specifications() {
                       placeholder={notes.readOnly ? '' : `Add ${notes.label.toLowerCase()}...`}
                     />
                   </div>
+                </div>
+
+                {/* Milestone dates */}
+                <div className="card" style={{ padding: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
+                    Milestone Dates
+                  </div>
+                  {spec.status === 'producer_input' ? (
+                    <MilestoneDatePicker
+                      dueRevision={form.due_revision}
+                      dueClientReview={form.due_client_review}
+                      dueApproved={form.due_approved}
+                      onChange={handleMilestoneChange}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {spec.status === 'for_revision' && form.due_revision && (
+                        <span style={{ padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: 'rgba(245,158,11,0.1)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}>
+                          For Revision: {formatDatePill(form.due_revision)}
+                        </span>
+                      )}
+                      {spec.status === 'for_client_revision' && form.due_client_review && (
+                        <span style={{ padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: 'rgba(249,115,22,0.1)', color: '#F97316', border: '1px solid rgba(249,115,22,0.3)' }}>
+                          Client Review: {formatDatePill(form.due_client_review)}
+                        </span>
+                      )}
+                      {spec.status === 'approved' && form.due_approved && (
+                        <span style={{ padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: 'rgba(34,197,94,0.1)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.3)' }}>
+                          Approved: {formatDatePill(form.due_approved)}
+                        </span>
+                      )}
+                      {!form.due_revision && !form.due_client_review && !form.due_approved && (
+                        <span style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>No milestone dates set.</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
