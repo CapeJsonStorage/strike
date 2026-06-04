@@ -5,9 +5,10 @@ import DateRangePicker from '../components/DateRangePicker.jsx';
 
 function ProjectTabs({ id, active }) {
   const tabs = [
-    { key: 'overview', label: 'Overview', path: `/projects/${id}/overview` },
-    { key: 'assets', label: 'Assets', path: `/projects/${id}/assets` },
+    { key: 'overview',       label: 'Overview',       path: `/projects/${id}/overview` },
+    { key: 'assets',         label: 'Assets',         path: `/projects/${id}/assets` },
     { key: 'specifications', label: 'Specifications', path: `/projects/${id}/specifications` },
+    { key: 'uploads',        label: 'Uploads',        path: `/projects/${id}/uploads` },
   ];
   return (
     <div className="tab-nav">
