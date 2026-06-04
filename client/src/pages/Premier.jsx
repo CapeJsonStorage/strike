@@ -413,6 +413,7 @@ export default function Premier() {
                         >×</button>
                       </div>
                     </div>
+                    </div>
                   ))}
                 </div>
               </div>
